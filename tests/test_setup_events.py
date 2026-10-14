@@ -32,6 +32,7 @@ class SetupEventTests(unittest.IsolatedAsyncioTestCase):
 
         client = Mock()
         client.set_poll_ms = AsyncMock()
+        client.bridge_id = None
         client.get_properties = AsyncMock(return_value=[])
         callbacks = []
 
@@ -77,6 +78,7 @@ class SetupEventTests(unittest.IsolatedAsyncioTestCase):
         coordinator.async_config_entry_first_refresh = AsyncMock()
         client = Mock()
         client.set_poll_ms = AsyncMock()
+        client.bridge_id = None
         client.get_properties = AsyncMock(return_value=[])
         callbacks = []
 

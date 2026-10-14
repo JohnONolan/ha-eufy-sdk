@@ -207,6 +207,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EufySdkConfigEntry) -> b
     )
 
     await coordinator.async_config_entry_first_refresh()
+    _adopt_bridge_id(hass, entry, client.bridge_id)
 
     # Push the chosen poll interval to the bridge (the cloud-poll cadence lives there).
     try:
@@ -268,3 +269,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: EufySdkConfigEntry) -> 
     if unloaded:
         await entry.runtime_data.client.close()
     return unloaded
+
+
+def _adopt_bridge_id(
+    hass: HomeAssistant, entry: EufySdkConfigEntry, bridge_id: str | None
+) -> None:
+    """
+    Key the entry by its bridge's stable id, so discovery recognises it.
+
+    An entry added by address keeps working, but a bridge it already holds would be
+    offered again under another address. If another entry already holds this bridge,
+    the two are duplicates: say so rather than re-keying.
+    """
+    if not bridge_id or entry.unique_id == bridge_id:
+        return
+    for other in hass.config_entries.async_entries(entry.domain):
+        if other.entry_id != entry.entry_id and other.unique_id == bridge_id:
+            LOGGER.warning(
+                "eufy-sdk entries '%s' and '%s' are the same bridge; remove one",
+                other.title,
+                entry.title,
+            )
+            return
+    hass.config_entries.async_update_entry(entry, unique_id=bridge_id)
