@@ -117,7 +117,7 @@ def _apply_property_changed(
         return
 
     serial = evt.get("deviceSn") or evt.get("sn")
-    if not serial or serial not in coordinator.data:
+    if not serial or serial not in (coordinator.data or {}):
         return
 
     entry.async_create_background_task(
@@ -172,7 +172,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EufySdkConfigEntry) -> b
 
         if event == "contactState":
             sn = evt.get("deviceSn") or evt.get("sn")
-            if sn and sn in coordinator.data and "open" in evt:
+            if sn and sn in (coordinator.data or {}) and "open" in evt:
                 coordinator.data[sn].setdefault("state", {})["contact"] = bool(
                     evt.get("open")
                 )
@@ -182,7 +182,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EufySdkConfigEntry) -> b
             if "mode" in evt:
                 apply_arming_mode_event(coordinator, evt)
                 _end_cancelled_delay(serial)
-            elif serial and serial in coordinator.data:
+            elif serial and serial in (coordinator.data or {}):
                 entry.async_create_background_task(
                     hass,
                     _refresh_then_end_cancelled_delay(serial),
