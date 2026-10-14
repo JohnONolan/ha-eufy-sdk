@@ -376,14 +376,25 @@ class EufySdkPropertyEntity(EufySdkDeviceEntity):
     @property
     def prop_value(self) -> Any:
         """The held optimistic value if set, else the device's live state."""
-        if self._assumed_value is not None:
+        live = self.device.get("state", {}).get(self._prop)
+        # A write-only setting has no live state to fall back to, so the written value
+        # is held. Should the device start reporting one, its report wins.
+        if self._assumed_value is not None and (live is None or not self.write_only):
             return self._assumed_value
-        return self.device.get("state", {}).get(self._prop)
+        return live
 
     @property
     def write_only(self) -> bool:
-        """Whether the device accepts this setting but never reports it back."""
-        return bool(self._spec.get("writeOnly"))
+        """
+        Whether the device accepts this setting but does not report it back.
+
+        Either a declared write-only setting, or a settable one the device has never
+        reported (`reported: false`), which would otherwise drop back to unknown
+        after every write.
+        """
+        return bool(self._spec.get("writeOnly")) or (
+            bool(self._spec.get("writable")) and self._spec.get("reported") is False
+        )
 
     async def write(self, value: Any) -> None:
         """Write while keeping optimistic state owned by the latest operation."""
