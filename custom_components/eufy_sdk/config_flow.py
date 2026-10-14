@@ -148,6 +148,8 @@ class EufySdkFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 LOGGER.warning("bridge connect failed: %s", err)
                 errors["base"] = "cannot_connect"
             else:
+                if aborted := await self._abort_if_bridge_configured():
+                    return aborted
                 return await self._continue_auth()
 
         return self.async_show_form(
@@ -236,7 +238,36 @@ class EufySdkFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             LOGGER.warning("discovered bridge connect failed: %s", err)
             return self.async_abort(reason="cannot_connect")
 
+        if aborted := await self._abort_if_bridge_configured():
+            return aborted
         return await self.async_step_hassio_confirm()
+
+    async def _abort_if_bridge_configured(
+        self,
+    ) -> config_entries.ConfigFlowResult | None:
+        """
+        Abort when an entry already holds this bridge, under whatever address.
+
+        An add-on is discovered at its Supervisor address, while the same bridge may
+        have been added by LAN IP or hostname, so only its `bridgeId` tells them
+        apart. A new entry takes that id as its unique id. An older bridge has none,
+        so nothing changes.
+        """
+        if self._client is None:
+            return None
+        try:
+            await self._client.auth_status()
+        except EufySdkApiClientError:
+            return None
+        bridge_id = self._client.bridge_id
+        if not bridge_id:
+            return None
+        if any(e.unique_id == bridge_id for e in self._async_current_entries()):
+            await self._client.close()
+            self._client = None
+            return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(bridge_id, raise_on_progress=False)
+        return None
 
     async def async_step_hassio_confirm(
         self,
