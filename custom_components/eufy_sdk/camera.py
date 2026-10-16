@@ -19,10 +19,11 @@ from .const import (
     DOMAIN,
 )
 from .entity import device_offline
-from .preload import async_check_preload
+from .preload import async_check_preload, on_battery_power
 from .snapshot_policy import snapshot_url
 
 if TYPE_CHECKING:
+    from homeassistant.components.stream import Stream
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -99,6 +100,20 @@ class EufySdkCamera(CoordinatorEntity["EufySdkDataUpdateCoordinator"], Camera):
     async def stream_source(self) -> str:
         """Return the go2rtc RTSP URL — HA's stream component + go2rtc do the work."""
         return f"rtsp://{self._host}:{self._rtsp_port}/{self._sn}"
+
+    async def async_create_stream(self) -> Stream | None:
+        """
+        Skip Home Assistant's stream worker for a battery camera.
+
+        That worker retries a failed or closed source forever, and every retry makes
+        the bridge wake the camera over P2P. A battery camera was drained flat that way
+        after one live view (ha-eufy-sdk#83). Live view then runs through Home
+        Assistant's go2rtc (WebRTC) on the same RTSP restream, so there is no HLS
+        fallback and no camera.record for battery cameras.
+        """
+        if on_battery_power(self.coordinator.data.get(self._sn)):
+            return None
+        return await super().async_create_stream()
 
     async def async_camera_image(
         self,

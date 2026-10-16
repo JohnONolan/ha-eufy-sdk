@@ -28,10 +28,13 @@ def on_battery_power(record: dict[str, Any] | None) -> bool:
     """
     Whether a camera runs on battery.
 
-    Some mains models still carry the `battery` capability, but only a camera on
+    The bridge's `power` field is the SDK's own answer. A bridge without it leaves
+    the capability: some mains models still carry `battery`, but only a camera on
     battery reports a level, so both are required.
     """
     record = record or {}
+    if record.get("power") in ("battery", "wired"):
+        return record["power"] == "battery"
     return "battery" in (record.get("capabilities") or []) and (
         (record.get("state") or {}).get("battery") is not None
     )
