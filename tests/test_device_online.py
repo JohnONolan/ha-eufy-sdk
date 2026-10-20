@@ -91,6 +91,18 @@ class LivenessFactTests(unittest.TestCase):
         }
         self.assertFalse(device_offline(rec, now_ms=self.NOW))
 
+    def test_a_live_p2p_transport_means_reachable_despite_stale_last_seen(self):
+        # #121: a standalone mains camera on a live session sends only keepalives, so
+        # lastSeenMs is stale and deviceStatus is false, yet it is plainly reachable.
+        rec = {
+            "codec": "camera",
+            "power": "wired",
+            "p2pReachable": True,
+            "lastSeenMs": self.NOW - 3 * 60 * 60 * 1000,
+            "state": {"deviceStatus": False},
+        }
+        self.assertFalse(device_offline(rec, now_ms=self.NOW))
+
     def test_a_recently_seen_camera_is_not_offline_despite_devicestatus(self):
         # #144: param 1131 is false, but it reported a minute ago, so it is reachable.
         rec = {

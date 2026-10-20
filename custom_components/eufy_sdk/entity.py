@@ -279,7 +279,10 @@ def device_offline(record: dict | None, now_ms: float | None = None) -> bool:
     if availability in ("unavailable", "available"):
         return availability == "unavailable"
 
-    if rec.get("streaming"):
+    # A live feed, or a standalone device's live P2P transport, proves reachability
+    # right now — even while the device sends only keepalives and `lastSeenMs` stays
+    # put (ha-eufy-sdk #121).
+    if rec.get("streaming") or rec.get("p2pReachable"):
         return False
 
     last_seen = rec.get("lastSeenMs")
