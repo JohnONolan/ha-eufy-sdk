@@ -57,14 +57,15 @@ class EufySdkLock(EufySdkDeviceEntity, LockEntity):
         self._attr_unique_id = f"{sn}_lock"
         self._post_action_unsub = None
         self._assumed_locked: bool | None = None
+        self._reported_locked: bool | None = None
 
     @property
     def is_locked(self) -> bool | None:
-        """The held optimistic state if set, else the last polled `locked` value."""
+        """The optimistic state, else snapshot state with a reported-state fallback."""
         if self._assumed_locked is not None:
             return self._assumed_locked
         v = self.device.get("state", {}).get("locked")
-        return None if v is None else bool(v)
+        return self._reported_locked if v is None else bool(v)
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to the bridge's decoded lock-state reports."""
@@ -80,6 +81,7 @@ class EufySdkLock(EufySdkDeviceEntity, LockEntity):
         locked = data.get("locked")
         if not isinstance(locked, bool):
             return
+        self._reported_locked = locked
         self.device.setdefault("state", {})["locked"] = locked
         self._assumed_locked = None
         self.coordinator.async_update_listeners()

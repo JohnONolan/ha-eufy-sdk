@@ -63,3 +63,18 @@ class TestLockRealtime(IsolatedAsyncioTestCase):
             assert self.entity.is_locked is locked
             await self._report(locked=not locked)
             assert self.entity.is_locked is not locked
+
+    async def test_report_survives_refresh_without_lock_state(self) -> None:
+        """Keep reports when snapshot state is absent; prefer a supplied value."""
+        assert self.entity.is_locked is None
+        for locked in (True, False):
+            await self._report(locked=locked)
+            for state in ({}, {"locked": None}):
+                self.coordinator.data = {"lock": {"state": state}}
+                self.entity.async_write_ha_state.reset_mock()
+                self.coordinator.async_update_listeners()
+                assert self.entity.is_locked is locked
+                self.entity.async_write_ha_state.assert_called_once_with()
+            self.coordinator.data = {"lock": {"state": {"locked": not locked}}}
+            self.coordinator.async_update_listeners()
+            assert self.entity.is_locked is not locked
